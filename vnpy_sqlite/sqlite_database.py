@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from sqlalchemy import create_engine,text
 from peewee import (
     AutoField,
     CharField,
@@ -28,6 +28,7 @@ from vnpy.trader.setting import SETTINGS
 filename: str = SETTINGS["database.database"] or "database.db"
 path: CharField = str(get_file_path(filename))
 db: PeeweeSqliteDatabase = PeeweeSqliteDatabase(path)
+engine = create_engine(f'sqlite:///{str(path)}')
 
 
 class DbBarData(Model):
@@ -300,6 +301,50 @@ class SqliteDatabase(BaseDatabase):
                 gateway_name="DB"
             )
             bars.append(bar)
+
+        return bars
+
+    def load_bar_data_sql(
+        self,
+        symbol: str,
+        exchange: Exchange,
+        interval: Interval,
+        start: datetime,
+        end: datetime
+    ) -> list[BarData]:
+        """通过sql读取K线数据"""
+
+        sql = f'''
+        SELECT 
+            symbol, datetime, open_price, high_price, low_price, close_price, volume, open_interest 
+        FROM dbbardata 
+        WHERE 
+            symbol='{symbol}' AND 
+            exchange='{exchange.value}' AND
+            interval='{interval.value}' AND
+            datetime BETWEEN '{start.strftime('%Y-%m-%d %H:%M:%S')}' AND '{end.strftime('%Y-%m-%d %H:%M:%S')}'
+        '''
+        bars = []
+        # 直接使用 engine.connect() 获取连接，执行SQL
+        with engine.connect() as connection:
+            # 2. 将 sql 字符串用 text() 函数包裹 --->
+            result = connection.execute(text(sql))
+            bars = [
+                BarData(
+                    symbol=row[0],
+                    exchange=exchange,
+                    datetime=datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S').replace(tzinfo=DB_TZ),
+                    interval=interval,
+                    open_price=row[2],
+                    high_price=row[3],
+                    low_price=row[4],
+                    close_price=row[5],
+                    volume=row[6],
+                    open_interest=row[7],
+                    gateway_name='DB'
+                )
+                for row in result
+            ]
 
         return bars
 
