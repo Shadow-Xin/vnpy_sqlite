@@ -289,7 +289,8 @@ class SqliteDatabase(BaseDatabase):
             bar: BarData = BarData(
                 symbol=db_bar.symbol,
                 exchange=Exchange(db_bar.exchange),
-                datetime=datetime.fromtimestamp(db_bar.datetime.timestamp(), DB_TZ),
+                # datetime=datetime.fromtimestamp(db_bar.datetime.timestamp(), DB_TZ),
+                datetime=datetime.fromtimestamp(db_bar.datetime.replace(tzinfo=DB_TZ).timestamp(), DB_TZ),
                 interval=Interval(db_bar.interval),
                 volume=db_bar.volume,
                 turnover=db_bar.turnover,
